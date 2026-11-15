@@ -1,5 +1,5 @@
 export const isValidDateOnly = value => {
-  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
@@ -10,16 +10,15 @@ export const todayISO = () => {
   return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
 };
 
-// Accepts Brazilian values (1.234,56) and plain decimal values (1234.56).
 export const parseAmount = value => {
   if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
-  let normalized = String(value ?? '').trim().replace(/R\\$/gi, '').replace(/\\s/g, '');
+  let normalized = String(value ?? '').trim().replace(/R\$/gi, '').replace(/\s/g, '');
   if (!normalized) return NaN;
   const comma = normalized.lastIndexOf(',');
   const dot = normalized.lastIndexOf('.');
   if (comma !== -1 && dot !== -1) {
     normalized = comma > dot
-      ? normalized.replace(/\\./g, '').replace(',', '.')
+      ? normalized.replace(/\./g, '').replace(',', '.')
       : normalized.replace(/,/g, '');
   } else if (comma !== -1) {
     normalized = normalized.replace(',', '.');
@@ -28,8 +27,12 @@ export const parseAmount = value => {
   return Number.isFinite(amount) ? amount : NaN;
 };
 
-// Date-only strings are kept as calendar dates; never parse them as UTC timestamps.
-export const monthKey = value => isValidDateOnly(value) ? value.slice(0, 7) : '';
+export const monthKey = value => {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.getFullYear() + '-' + String(value.getMonth() + 1).padStart(2, '0');
+  }
+  return isValidDateOnly(value) ? value.slice(0, 7) : '';
+};
 
 export const normalizeStoredData = (raw, fallback) => {
   const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
