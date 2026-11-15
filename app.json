@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "FinancasApp Next",
+    "slug": "financasapp-next",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": { "resizeMode": "contain", "backgroundColor": "#126B49" },
+    "android": { "package": "com.igor1223.financasappnext" },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.igor1223.financasappnext" }
+  }
+}
