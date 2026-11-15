@@ -31,6 +31,10 @@ npx expo start
 
 4. Leia o QR Code com o Expo Go.
 
+## Testes automatizados
+
+Execute `npm test` para validar os utilitários de datas, valores e normalização dos dados.
+
 ## Observações importantes
 - Os dados são armazenados localmente no aparelho. Não existe sincronização entre dispositivos.
 - O perfil é local e não representa autenticação online.
