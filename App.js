@@ -30,6 +30,7 @@ function Field({ label, value, onChangeText, placeholder, keyboardType, colors }
 function App() {
   const [data, setData] = useState({ transactions: [], goals: [], budgets: {}, profile: { name: 'Olá!', email: '' }, dark: false });
   const [loaded, setLoaded] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
   const [tab, setTab] = useState('Início');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -42,8 +43,8 @@ function App() {
   const colors = palettes[data.dark ? 'dark' : 'light'];
   const saveQueue = useRef(Promise.resolve());
 
-  useEffect(() => { let active = true; (async () => { try { const raw = await AsyncStorage.getItem(STORAGE_KEY); if (raw && active) setData(current => normalizeStoredData(JSON.parse(raw), current)); } catch (e) { if (active) Alert.alert('Atenção', 'Os dados salvos não puderam ser lidos. Um conjunto vazio será iniciado; verifique o armazenamento do aparelho antes de continuar.'); } finally { if (active) setLoaded(true); } })(); return () => { active = false; }; }, []);
-  useEffect(() => { if (loaded) { const snapshot = JSON.stringify(data); saveQueue.current = saveQueue.current.catch(() => {}).then(() => AsyncStorage.setItem(STORAGE_KEY, snapshot)).catch(() => Alert.alert('Erro', 'Não foi possível salvar seus dados. Confira o espaço disponível no aparelho.')); } }, [data, loaded]);
+  useEffect(() => { let active = true; (async () => { try { const raw = await AsyncStorage.getItem(STORAGE_KEY); if (raw && active) setData(current => normalizeStoredData(JSON.parse(raw), current)); if (active) setStorageReady(true); } catch (e) { if (active) Alert.alert('Atenção', 'Os dados salvos não puderam ser lidos. Para evitar perda, o aplicativo não vai sobrescrever o armazenamento existente.'); } finally { if (active) setLoaded(true); } })(); return () => { active = false; }; }, []);
+  useEffect(() => { if (loaded && storageReady) { const snapshot = JSON.stringify(data); saveQueue.current = saveQueue.current.catch(() => {}).then(() => AsyncStorage.setItem(STORAGE_KEY, snapshot)).catch(() => Alert.alert('Erro', 'Não foi possível salvar seus dados. Confira o espaço disponível no aparelho.')); } }, [data, loaded]);
 
   const currentMonth = monthKey(new Date());
   const monthTransactions = data.transactions.filter(t => monthKey(t.date) === currentMonth);
@@ -58,6 +59,7 @@ function App() {
   const saveTransaction = () => {
     const amount = parseAmount(form.amount);
     if (!form.description.trim() || !Number.isFinite(amount) || amount <= 0) return Alert.alert('Confira os dados', 'Informe uma descrição e um valor maior que zero.');
+    if (!isValidDateOnly(form.date)) return Alert.alert('Data inválida', 'Use uma data válida no formato AAAA-MM-DD.');
     if (!isValidDateOnly(form.date)) return Alert.alert('Data inválida', 'Use uma data válida no formato AAAA-MM-DD.');
     const item = { id: editing || uid(), description: form.description.trim(), amount, type: form.type, category: form.category, date: form.date };
     setData(p => ({ ...p, transactions: editing ? p.transactions.map(t => t.id === editing ? item : t) : [item, ...p.transactions] }));
