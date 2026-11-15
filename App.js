@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform,
   Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text,
@@ -6,12 +6,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { isValidDateOnly, monthKey, normalizeStoredData, parseAmount, todayISO } from './utils/finance';
 
 const STORAGE_KEY = '@financas-next-v1';
 const categories = ['Salário', 'Freelance', 'Alimentação', 'Moradia', 'Transporte', 'Lazer', 'Compras', 'Saúde', 'Educação', 'Contas', 'Outros'];
 const money = value => (Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const uid = () => Date.now().toString() + Math.random().toString(36).slice(2, 7);
-const monthKey = date => { const d = new Date(date); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+
 
 const palettes = {
   light: { bg: '#F4F6F8', surface: '#FFFFFF', text: '#17211D', muted: '#7B8781', line: '#E7ECE9', primary: '#167D55', soft: '#E5F4EC', red: '#D94D58', green: '#16865B', input: '#F7F9F8' },
@@ -32,16 +33,17 @@ function App() {
   const [tab, setTab] = useState('Início');
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ description: '', amount: '', type: 'expense', category: 'Alimentação', date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ description: '', amount: '', type: 'expense', category: 'Alimentação', date: todayISO() });
   const [goalModal, setGoalModal] = useState(false);
   const [goalForm, setGoalForm] = useState({ name: '', target: '', saved: '' });
   const [budgetForm, setBudgetForm] = useState({ category: 'Alimentação', limit: '' });
   const [profileForm, setProfileForm] = useState({ name: '', email: '' });
   const [filter, setFilter] = useState('Todos');
   const colors = palettes[data.dark ? 'dark' : 'light'];
+  const saveQueue = useRef(Promise.resolve());
 
-  useEffect(() => { (async () => { try { const raw = await AsyncStorage.getItem(STORAGE_KEY); if (raw) setData({ ...data, ...JSON.parse(raw) }); } catch (e) { Alert.alert('Atenção', 'Não foi possível carregar os dados salvos.'); } finally { setLoaded(true); } })(); }, []);
-  useEffect(() => { if (loaded) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(() => Alert.alert('Erro', 'Não foi possível salvar seus dados.')); }, [data, loaded]);
+  useEffect(() => { let active = true; (async () => { try { const raw = await AsyncStorage.getItem(STORAGE_KEY); if (raw && active) setData(current => normalizeStoredData(JSON.parse(raw), current)); } catch (e) { if (active) Alert.alert('Atenção', 'Os dados salvos não puderam ser lidos. Um conjunto vazio será iniciado; verifique o armazenamento do aparelho antes de continuar.'); } finally { if (active) setLoaded(true); } })(); return () => { active = false; }; }, []);
+  useEffect(() => { if (loaded) { const snapshot = JSON.stringify(data); saveQueue.current = saveQueue.current.catch(() => {}).then(() => AsyncStorage.setItem(STORAGE_KEY, snapshot)).catch(() => Alert.alert('Erro', 'Não foi possível salvar seus dados. Confira o espaço disponível no aparelho.')); } }, [data, loaded]);
 
   const currentMonth = monthKey(new Date());
   const monthTransactions = data.transactions.filter(t => monthKey(t.date) === currentMonth);
@@ -49,7 +51,7 @@ function App() {
   const expenses = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const balance = data.transactions.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
   const spentByCategory = category => monthTransactions.filter(t => t.type === 'expense' && t.category === category).reduce((s, t) => s + t.amount, 0);
-  const sorted = [...data.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...data.transactions].sort((a, b) => b.date.localeCompare(a.date));
 
   const openNew = () => { setEditing(null); setForm({ description: '', amount: '', type: 'expense', category: 'Alimentação', date: new Date().toISOString().slice(0, 10) }); setModal(true); };
   const openEdit = item => { setEditing(item.id); setForm({ description: item.description, amount: String(item.amount).replace('.', ','), type: item.type, category: item.category, date: item.date }); setModal(true); };
@@ -61,9 +63,9 @@ function App() {
     setModal(false);
   };
   const deleteTransaction = id => Alert.alert('Excluir movimentação?', 'Essa ação não pode ser desfeita.', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Excluir', style: 'destructive', onPress: () => setData(p => ({ ...p, transactions: p.transactions.filter(t => t.id !== id) })) }]);
-  const saveGoal = () => { const target = Number(goalForm.target.replace(',', '.')); const saved = Number((goalForm.saved || '0').replace(',', '.')); if (!goalForm.name.trim() || target <= 0 || saved < 0) return Alert.alert('Confira os dados', 'Informe nome e valor válido para a meta.'); setData(p => ({ ...p, goals: [...p.goals, { id: uid(), name: goalForm.name.trim(), target, saved }] })); setGoalForm({ name: '', target: '', saved: '' }); setGoalModal(false); };
+  const saveGoal = () => { const target = parseAmount(goalForm.target); const saved = goalForm.saved.trim() ? parseAmount(goalForm.saved) : 0; if (!goalForm.name.trim() || !Number.isFinite(target) || target <= 0 || !Number.isFinite(saved) || saved < 0) return Alert.alert('Confira os dados', 'Informe nome e valor válido para a meta.'); setData(p => ({ ...p, goals: [...p.goals, { id: uid(), name: goalForm.name.trim(), target, saved }] })); setGoalForm({ name: '', target: '', saved: '' }); setGoalModal(false); };
   const updateGoal = (id, delta) => setData(p => ({ ...p, goals: p.goals.map(g => g.id === id ? { ...g, saved: Math.max(0, g.saved + delta) } : g) }));
-  const saveBudget = () => { const limit = Number(budgetForm.limit.replace(',', '.')); if (limit <= 0) return Alert.alert('Valor inválido', 'Informe um limite maior que zero.'); setData(p => ({ ...p, budgets: { ...p.budgets, [budgetForm.category]: limit } })); setBudgetForm({ category: 'Alimentação', limit: '' }); Alert.alert('Orçamento salvo', 'Seu limite mensal foi atualizado.'); };
+  const saveBudget = () => { const limit = parseAmount(budgetForm.limit); if (!Number.isFinite(limit) || limit <= 0) return Alert.alert('Valor inválido', 'Informe um limite maior que zero.'); setData(p => ({ ...p, budgets: { ...p.budgets, [budgetForm.category]: limit } })); setBudgetForm({ category: 'Alimentação', limit: '' }); Alert.alert('Orçamento salvo', 'Seu limite mensal foi atualizado.'); };
 
   const Card = ({ children, style }) => <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }, style]}>{children}</View>;
   const Heading = ({ children, right }) => <View style={styles.heading}><Text style={[styles.sectionTitle, { color: colors.text }]}>{children}</Text>{right}</View>;
