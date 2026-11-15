@@ -36,7 +36,8 @@ npx expo start
 Execute `npm test` para validar os utilitários de datas, valores e normalização dos dados.
 
 ## Observações importantes
-- Os dados são armazenados localmente no aparelho. Não existe sincronização entre dispositivos.
+- Os dados são armazenados localmente no aparelho com AsyncStorage; não existe sincronização entre dispositivos.
+- AsyncStorage não é armazenamento criptografado. Não use esta versão para guardar senhas, dados bancários de acesso ou informações altamente sensíveis.
 - O perfil é local e não representa autenticação online.
 - Para login real, recuperação de senha e sincronização na nuvem, será necessário integrar um backend como Supabase ou Firebase.
 - Os valores de orçamento e metas são ferramentas de acompanhamento; não movimentam dinheiro real.
