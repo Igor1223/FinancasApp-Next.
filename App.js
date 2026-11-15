@@ -53,12 +53,13 @@ function App() {
   const spentByCategory = category => monthTransactions.filter(t => t.type === 'expense' && t.category === category).reduce((s, t) => s + t.amount, 0);
   const sorted = [...data.transactions].sort((a, b) => b.date.localeCompare(a.date));
 
-  const openNew = () => { setEditing(null); setForm({ description: '', amount: '', type: 'expense', category: 'Alimentação', date: new Date().toISOString().slice(0, 10) }); setModal(true); };
+  const openNew = () => { setEditing(null); setForm({ description: '', amount: '', type: 'expense', category: 'Alimentação', date: todayISO() }); setModal(true); };
   const openEdit = item => { setEditing(item.id); setForm({ description: item.description, amount: String(item.amount).replace('.', ','), type: item.type, category: item.category, date: item.date }); setModal(true); };
   const saveTransaction = () => {
-    const amount = Number(String(form.amount).replace(',', '.'));
+    const amount = parseAmount(form.amount);
     if (!form.description.trim() || !Number.isFinite(amount) || amount <= 0) return Alert.alert('Confira os dados', 'Informe uma descrição e um valor maior que zero.');
-    const item = { id: editing || uid(), description: form.description.trim(), amount, type: form.type, category: form.category, date: form.date || new Date().toISOString().slice(0, 10) };
+    if (!isValidDateOnly(form.date)) return Alert.alert('Data inválida', 'Use uma data válida no formato AAAA-MM-DD.');
+    const item = { id: editing || uid(), description: form.description.trim(), amount, type: form.type, category: form.category, date: form.date };
     setData(p => ({ ...p, transactions: editing ? p.transactions.map(t => t.id === editing ? item : t) : [item, ...p.transactions] }));
     setModal(false);
   };
