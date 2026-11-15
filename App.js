@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform,
   Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text,
   TextInput, View
 } from 'react-native';
